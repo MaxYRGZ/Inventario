@@ -11,6 +11,7 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
   const [precio, setPrecio] = useState("");
   const [minStock, setMinStock] = useState("");
   const [maxStock, setMaxStock] = useState("");
+  const [currentStock, setCurrentStock] = useState(""); // Add currentStock state
   const navigation = useNavigation();
 
   const addProduct = async () => {
@@ -19,7 +20,7 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
       await db.transaction(async (tx) => {
         await tx.executeSql(
           "INSERT INTO productos (nombre, precio, miniStock, maxStock, currentStock) VALUES (?, ?, ?, ?, ?)",
-          [nombre, parseFloat(precio), parseInt(minStock), parseInt(maxStock), parseInt(minStock)]
+          [nombre, parseFloat(precio), parseInt(minStock), parseInt(maxStock), parseInt(currentStock)] // Use currentStock
         );
       });
       navigation.goBack();
@@ -59,6 +60,14 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
         value={maxStock}
         onChangeText={setMaxStock}
         placeholder="Stock máximo"
+        keyboardType="numeric"
+      />
+      <Text style={styles.label}>Stock actual:</Text> 
+      <TextInput
+        style={styles.input}
+        value={currentStock}
+        onChangeText={setCurrentStock}
+        placeholder="Stock actual"
         keyboardType="numeric"
       />
       <Button title="Agregar Producto" onPress={addProduct} />

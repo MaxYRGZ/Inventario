@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, Text, View, StyleSheet, Button } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../App.tsx';
+import React, { useState, useEffect } from 'react';
+import { SafeAreaView, Text, View, StyleSheet, Button, ScrollView } from 'react-native';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
+import { RootStackParamList } from '../../App.tsx';
 import { Product } from './model/Product.ts/model/Product.ts';
+import LocalDB from '../persistance/localdb';
 
 type ProductDetailsRouteProp = RouteProp<RootStackParamList, 'ProductDetails'>;
 type ProductDetailsNavigationProp = StackNavigationProp<RootStackParamList, 'ProductDetails'>;
@@ -18,40 +20,102 @@ type Props = {
 };
 
 function ProductDetails({ route, navigation }: Props): React.JSX.Element {
-  const [product, setProduct] = useState<Product | undefined>(undefined);
+  const { product } = route.params;
+  const [loadedProduct, setLoadedProduct] = useState<Product | null>(null);
+  const [ingresos, setIngresos] = useState<any[]>([]);
+  const [egresos, setEgresos] = useState<any[]>([]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoadedProduct(product);
+      fetchMovimientos(product.id);
+    }, [product])
+  );
 
   useEffect(() => {
-    setProduct(route.params.product);
-  }, [route]);
+    console.log("El valor de currentStock ha cambiado:", loadedProduct?.currentStock);
+  }, [loadedProduct?.currentStock]);
 
-  const navigateToExits = () => {
-    navigation.navigate('Exits');
+  const fetchMovimientos = async (productId: number) => {
+    try {
+      const db = await LocalDB.connect();
+      db.transaction(tx => {
+        tx.executeSql(
+          'SELECT * FROM ingresos WHERE productoId = ?',
+          [product.id],
+          (_, { rows }) => {
+            let ingresosArray: any[] = [];
+            for (let i = 0; i < rows.length; i++) {
+              ingresosArray.push(rows.item(i));
+            }
+            setIngresos(ingresosArray);
+          }
+        );
+        tx.executeSql(
+          'SELECT * FROM egresos WHERE productoId = ?',
+          [product.id],
+          (_, { rows }) => {
+            let egresosArray: any[] = [];
+            for (let i = 0; i < rows.length; i++) {
+              egresosArray.push(rows.item(i));
+            }
+            setEgresos(egresosArray);
+          }
+        );
+      });
+    } catch (error) {
+      console.error("Error consultando movimientos:", error);
+    }
   };
 
   const navigateToEntries = () => {
-    navigation.navigate('Entries');
+    navigation.navigate('Entries', { productId: product.id });
+  };
+
+  const navigateToExits = () => {
+    navigation.navigate('Exits', { productId: product.id });
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {product && (
-        <View style={styles.productContainer}>
-          <Text style={styles.label}>Name:</Text>
-          <Text>{product.nombre}</Text>
-          <Text style={styles.label}>Price:</Text>
-          <Text>{product.precio}</Text>
-          <Text style={styles.label}>Minimum Stock:</Text>
-          <Text>{product.minStock}</Text>
-          <Text style={styles.label}>Current Stock:</Text>
-          <Text>{product.currentStock}</Text>
-          <Text style={styles.label}>Maximum Stock:</Text>
-          <Text>{product.maxStock}</Text>
-          <View style={styles.buttonContainer}>
-            <Button title="Go to Exits" onPress={navigateToExits} />
-            <Button title="Go to Entries" onPress={navigateToEntries} />
+      <ScrollView contentContainerStyle={styles.scrollViewContainer}>
+        {loadedProduct && (
+          <View style={styles.productContainer}>
+            <Text style={styles.label}>Name:</Text>
+            <Text>{loadedProduct.nombre}</Text>
+            <Text style={styles.label}>Price:</Text>
+            <Text>{loadedProduct.precio}</Text>
+            <Text style={styles.label}>Minimum Stock:</Text>
+            <Text>{loadedProduct.minStock}</Text>
+            <Text style={styles.label}>Current Stock:</Text>
+            <Text>{loadedProduct.currentStock}</Text>
+            <Text style={styles.label}>Maximum Stock:</Text>
+            <Text>{loadedProduct.maxStock}</Text>
+            <View style={styles.buttonContainer}>
+              <Button title="Go to Entries" onPress={navigateToEntries} />
+            </View>
+            <View style={styles.buttonContainer}>
+              <Button title="Go to Exits" onPress={navigateToExits} />
+            </View>
+            <Text style={styles.label}>Ingresos:</Text>
+            {ingresos.map((ingreso, index) => (
+              <View key={index} style={styles.transactionItem}>
+                <Text style={styles.transactionText}>ID: {ingreso.id}</Text>
+                <Text style={styles.transactionText}>Cantidad: {ingreso.cantidad}</Text>
+                <Text style={styles.transactionText}>Fecha: {ingreso.fecha}</Text>
+              </View>
+            ))}
+            <Text style={styles.label}>Egresos:</Text>
+            {egresos.map((egreso, index) => (
+              <View key={index} style={styles.transactionItem}>
+                <Text style={styles.transactionText}>ID: {egreso.id}</Text>
+                <Text style={styles.transactionText}>Cantidad: {egreso.cantidad}</Text>
+                <Text style={styles.transactionText}>Fecha: {egreso.fecha}</Text>
+              </View>
+            ))}
           </View>
-        </View>
-      )}
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -59,24 +123,37 @@ function ProductDetails({ route, navigation }: Props): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+  },
+  scrollViewContainer: {
+    flexGrow: 1,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   productContainer: {
+    width: '100%',
     borderWidth: 1,
     borderColor: 'black',
-    padding: 10,
+    padding: 20,
     borderRadius: 5,
   },
   label: {
     fontWeight: 'bold',
-    marginTop: 5,
+    marginTop: 10,
   },
   buttonContainer: {
     marginTop: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  transactionItem: {
+    marginBottom: 5,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  transactionText: {
+    fontSize: 14,
   },
 });
 
