@@ -1,16 +1,17 @@
+// ProductAdd.tsx
 import React, { useState } from "react";
 import { SafeAreaView, Text, TextInput, Button, StyleSheet } from "react-native";
+import { useNavigation } from '@react-navigation/native';
 import LocalDB from "../persistance/localdb";
 
-type ProductAddProps = {
-  navigation: any;
-};
+type ProductAddProps = {};
 
-const ProductAdd: React.FC<ProductAddProps> = ({ navigation }) => {
+const ProductAdd: React.FC<ProductAddProps> = () => {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [minStock, setMinStock] = useState("");
   const [maxStock, setMaxStock] = useState("");
+  const navigation = useNavigation();
 
   const addProduct = async () => {
     try {
