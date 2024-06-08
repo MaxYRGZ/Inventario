@@ -1,105 +1,165 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-import LocalDB from "../persistance/localdb";
+import { SafeAreaView, Text, StyleSheet, View, Alert } from "react-native";
+import { TouchableOpacity, FlatList } from "react-native-gesture-handler";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../../App";
 import { Product } from "./model/Product.ts/model/Product";
+import WebServiceParams from "./WebServiceParams";
+import LocalDB from "../persistance/localdb";
 
 type HomeScreenProps = StackNavigationProp<RootStackParamList, 'Home'>;
 type HomeScreenRoute = RouteProp<RootStackParamList, 'Home'>;
 
 type HomeProps = {
-  navigation: HomeScreenProps;
-  route: HomeScreenRoute;
+    navigation: HomeScreenProps;
+    route: HomeScreenRoute;
 };
 
-const Home: React.FC<HomeProps> = ({ navigation, route }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+function Home({ navigation }: HomeProps): React.JSX.Element {
+    const [products, setProducts] = useState<Product[]>([]);
 
-  const fetchData = async () => {
-    try {
-      LocalDB.init();
-      const db = await LocalDB.connect();
-      db.transaction(async tx => {
-        tx.executeSql(
-          'SELECT * FROM productos',
-          [],
-          (_,res) => {
-            let prods: Product[] = [];
-            for(let i = 0; i < res.rows.length; i++){
-              prods.push(res.rows.item(i) as Product);
+    /*
+    const fetchProducts = async () => {
+        try {
+            const response = await fetch(
+                `http://${WebServiceParams.host}:${WebServiceParams.port}/productos`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error("Network response was not ok");
             }
-            setProducts(prods);
-          },
-          error => console.error({error}),
-        );
-      });
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchData();
-    }, [])
-  );
+            const data: Product[] = await response.json();
+            setProducts(data);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            Alert.alert("Error", "Hubo un problema al obtener los datos");
+        }
+    };
 
-  return (
-    <SafeAreaView>
-      <FlatList 
-        data={products} 
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.productItem} 
-            onPress={() => navigation.push("ProductDetails", { product: item })}
-          >
-            <Text style={styles.itemTitle}>{item.nombre}</Text>
-            <Text style={styles.itemDetails}>Precio: ${item.precio.toFixed(2)}</Text>
-            <Text style={[styles.itemBadge, item.currentStock < item.minStock ? styles.itemBadgeError : null]}>
-              {item.currentStock}
-            </Text>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item.id.toString()} 
-      />
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            fetchProducts();
+        });
 
-    </SafeAreaView>
-  );
-};
+        return unsubscribe;
+    }, [navigation]);
+    */
+
+    useEffect(() => {
+      LocalDB.init();
+      navigation.addListener('focus',async ()=>{
+        try{
+        const response = await fetch(
+            `http://${WebServiceParams.host}:${WebServiceParams.port}/productos`,
+            {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'text/plain',
+              },
+            },
+          );
+          setProducts(await response.json());
+         }catch(error){
+          console.error(error);
+         }
+      })
+    }, [navigation]);
+
+    const productItem = ({ item }: { item: Product }) => (
+        <TouchableOpacity style={styles.productItem} onPress={() => navigation.push("ProductDetails", { product: item })}>
+            <View style={styles.productInfo}>
+                <Text style={styles.itemTitle}>{item.nombre}</Text>
+                <Text style={styles.itemDetails}>Precio: $ {item.precio.toFixed(2)}</Text>
+            </View>
+            <View style={styles.stockInfo}>
+                <Text
+                    style={[
+                        styles.itemBadge,
+                        item.currentStock < item.minStock ? styles.itemBadgeError : styles.itemBadgeOk,
+                    ]}>
+                    Stock: {item.currentStock}
+                </Text>
+            </View>
+        </TouchableOpacity>
+    );
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <FlatList 
+                data={products} 
+                renderItem={productItem} 
+                keyExtractor={(item) => item.id.toString()} 
+                contentContainerStyle={styles.listContainer}
+            />
+        </SafeAreaView>
+    );
+}
 
 const styles = StyleSheet.create({
-  productItem: {
-    padding: 12,
-  },
-  itemTitle: {
-    fontSize: 20,
-  },
-  itemDetails: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  itemBadge: {
-    fontSize: 24,
-    color: 'green',
-    alignSelf: 'center'
-  },
-  itemBadgeError: {
-    color: 'red'
-  },
-  addButton: {
-    backgroundColor: '#007bff',
-    padding: 10,
-    borderRadius: 5,
-    margin: 10,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#f8f8f8',
+    },
+    listContainer: {
+        padding: 10,
+    },
+    productItem: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 15,
+        marginBottom: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    productInfo: {
+        flex: 3,
+    },
+    stockInfo: {
+        flex: 1,
+        alignItems: 'flex-end',
+    },
+    itemTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    itemDetails: {
+        fontSize: 14,
+        color: '#888',
+    },
+    itemBadge: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 4,
+    },
+    itemBadgeOk: {
+        backgroundColor: 'green',
+        color: 'white',
+    },
+    itemBadgeError: {
+        backgroundColor: 'red',
+        color: 'white',
+    },
 });
 
 export default Home;

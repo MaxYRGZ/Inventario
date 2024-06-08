@@ -1,18 +1,25 @@
-// ProductAdd.tsx
 import React, { useState } from "react";
-import { SafeAreaView, Text, TextInput, Button, StyleSheet } from "react-native";
-import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { RouteProp, useNavigation } from '@react-navigation/native';
+import WebServiceParams from "./WebServiceParams";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { RootStackParamList } from "../../App";
 import LocalDB from "../persistance/localdb";
 
-type ProductAddProps = {};
+type ProductAddScreenProps = StackNavigationProp<RootStackParamList,'ProductAdd'>;
+type ProductAddRoute = RouteProp<RootStackParamList, 'ProductAdd'>;
 
-const ProductAdd: React.FC<ProductAddProps> = () => {
+type ProductAddProps = {
+  navigation: ProductAddScreenProps;
+  route: ProductAddRoute;
+};
+
+function ProductAdd({navigation}:ProductAddProps): React.JSX.Element {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [minStock, setMinStock] = useState("");
   const [maxStock, setMaxStock] = useState("");
-  const [currentStock, setCurrentStock] = useState(""); // Add currentStock state
-  const navigation = useNavigation();
+  const [currentStock, setCurrentStock] = useState("");
 
   const addProduct = async () => {
     try {
@@ -27,6 +34,25 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
     } catch (error) {
       console.error("Error al agregar producto:", error);
     }
+  };
+
+  const btnGuardarOnPress = async () => {
+    const db = await LocalDB.connect();
+    db.transaction(tx => {
+        tx.executeSql(
+          'INSERT INTO productos (nombre, precio, minStock) VALUES (?, ?, ?)',
+          [nombre, precio, minStock],
+        );
+        navigation.goBack();});
+    const response = await fetch(
+        `http://${WebServiceParams.host}:${WebServiceParams.port}/productos`,
+        {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({nombre, precio, minStock}),
+        });
   };
 
   return (
@@ -62,7 +88,7 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
         placeholder="Stock máximo"
         keyboardType="numeric"
       />
-      <Text style={styles.label}>Stock actual:</Text> 
+      <Text style={styles.label}>Stock actual:</Text>
       <TextInput
         style={styles.input}
         value={currentStock}
@@ -70,7 +96,7 @@ const ProductAdd: React.FC<ProductAddProps> = () => {
         placeholder="Stock actual"
         keyboardType="numeric"
       />
-      <Button title="Agregar Producto" onPress={addProduct} />
+      <Button title="Agregar Producto" onPress={btnGuardarOnPress} />
     </SafeAreaView>
   );
 };
